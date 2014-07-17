@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+require 'bunny'
+
 class BunnyMock::Exchange
   attr_accessor :name, :attrs, :queues
   def initialize(name, attrs = {})
@@ -7,8 +9,13 @@ class BunnyMock::Exchange
     self.queues = []
   end
 
-  def publish(msg, msg_attrs = {})
-    queues.each { |q| q.messages << msg }
+  def publish(payload, properties = {})
+    message_properties = Bunny::MessageProperties.new(properties)
+    delivery_info      = BunnyMock::DeliveryInfo.new
+
+    message = {delivery_info: delivery_info, properties: message_properties , payload: payload, }
+
+    queues.each { |q| q.messages << message }
   end
 
   def bound_to?(queue_name)

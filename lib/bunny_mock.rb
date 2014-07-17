@@ -3,6 +3,7 @@ require 'bunny_mock/consumer'
 require 'bunny_mock/channel'
 require 'bunny_mock/exchange'
 require 'bunny_mock/queue'
+require 'bunny_mock/delivery_info'
 
 class BunnyMock
 

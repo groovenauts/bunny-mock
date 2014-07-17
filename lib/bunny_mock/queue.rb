@@ -16,7 +16,7 @@ class BunnyMock::Queue
   def subscribe(*args, &block)
     while message = messages.shift
       self.delivery_count += 1
-      yield({:payload => message})
+      yield(message[:delivery_info], message[:properties], message[:payload])
     end
   end
 

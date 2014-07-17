@@ -34,28 +34,53 @@ describe "BunnyMock Integration Tests", :integration => true do
 
     # Verify state of the queue
     queue.messages.should have(3).messages
-    queue.messages.should == [
-      "Message 1",
-      "Message 2",
-      "Message 3"
-    ]
+    expect(queue.messages[0][:delivery_info].delivery_tag).to eq("1")
+    expect(queue.messages[0][:properties].to_hash.empty?).to be_true
+    expect(queue.messages[0][:payload]).to eq('Message 1')
+
+    expect(queue.messages[1][:delivery_info].delivery_tag).to eq("2")
+    expect(queue.messages[1][:properties].to_hash.empty?).to be_true
+    expect(queue.messages[1][:payload]).to eq('Message 2')
+
+    expect(queue.messages[2][:delivery_info].delivery_tag).to eq("3")
+    expect(queue.messages[2][:properties].to_hash.empty?).to be_true
+    expect(queue.messages[2][:payload]).to eq('Message 3')
+
     queue.snapshot_messages.should have(3).messages
-    queue.snapshot_messages.should == [
-      "Message 1",
-      "Message 2",
-      "Message 3"
-    ]
+    expect(queue.snapshot_messages[0][:delivery_info].delivery_tag).to eq("1")
+    expect(queue.snapshot_messages[0][:properties].to_hash.empty?).to be_true
+    expect(queue.snapshot_messages[0][:payload]).to eq('Message 1')
+
+    expect(queue.snapshot_messages[1][:delivery_info].delivery_tag).to eq("2")
+    expect(queue.snapshot_messages[1][:properties].to_hash.empty?).to be_true
+    expect(queue.snapshot_messages[1][:payload]).to eq('Message 2')
+
+    expect(queue.snapshot_messages[2][:delivery_info].delivery_tag).to eq("3")
+    expect(queue.snapshot_messages[2][:properties].to_hash.empty?).to be_true
+    expect(queue.snapshot_messages[2][:payload]).to eq('Message 3')
+
 
     # Here's what we expect to happen when we subscribe to this queue.
     handler = double("target")
-    handler.should_receive(:handle_message).with("Message 1").ordered
-    handler.should_receive(:handle_message).with("Message 2").ordered
-    handler.should_receive(:handle_message).with("Message 3").ordered
+    delivery_info = BunnyMock::DeliveryInfo.new
 
-    # Read all those messages
+    handler.should_receive(:handle_message).with(any_args) do |delivery_info, properties, payload|
+      delivery_info.delivery_tag == '1' && properties == {} && payload == 'Message 1'
+    end.ordered
+
+    handler.should_receive(:handle_message).with(any_args) do |delivery_info, properties, payload|
+      delivery_info.delivery_tag == '2' && properties == {} && payload == 'Message 2'
+    end.ordered
+
+    handler.should_receive(:handle_message).with(any_args) do |delivery_info, properties, payload|
+      delivery_info.delivery_tag == '3' && properties == {} && payload == 'Message 3'
+    end.ordered
+
+
+    # Read all those messagesX
     msg_count = 0
-    queue.subscribe do |msg|
-      handler.handle_message(msg[:payload])
+    queue.subscribe do |delivery_info, properties, payload|
+      handler.handle_message(delivery_info, properties, payload)
       msg_count += 1
       queue.default_consumer.message_count.should == msg_count
     end
@@ -152,13 +177,22 @@ describe BunnyMock::Queue do
   end
 
   describe "#subscribe" do
-    Given { queue.messages = ["Ehh", "What's up Doc?"] }
+    Given { queue.messages = [
+        {delivery_info: BunnyMock::DeliveryInfo.new, properties: Bunny::MessageProperties.new({}), payload: 'Ehh'},
+        {delivery_info: BunnyMock::DeliveryInfo.new, properties: Bunny::MessageProperties.new({}), payload: "What's up Doc?"}
+      ] }
     Given(:handler) { double("handler") }
     Given {
-      handler.should_receive(:handle).with("Ehh").ordered
-      handler.should_receive(:handle).with("What's up Doc?").ordered
+      handler.should_receive(:handle).with(any_args) do |delivery_info, properties, payload|
+        delivery_info.delivery_tag == '1' && properties == {} && payload == 'Ehh'
+      end.ordered
+
+      handler.should_receive(:handle).with(any_args) do |delivery_info, properties, payload|
+        delivery_info.delivery_tag == '1' && properties == {} && payload == "What's up Doc?"
+      end.ordered
+
     }
-    When { queue.subscribe { |msg| handler.handle(msg[:payload]) } }
+    When { queue.subscribe { |msg| handler.handle(msg) } }
     Then { queue.messages.should be_empty }
     Then { queue.snapshot_messages.should be_empty }
     Then { queue.delivery_count.should == 2 }
@@ -248,11 +282,24 @@ describe BunnyMock::Exchange do
     Given(:queue2) { BunnyMock::Queue.new("queue2") }
     Given { queue1.bind(exchange) }
     Given { queue2.bind(exchange) }
+    When { BunnyMock::DeliveryInfo.clear_delivery_tag }
     When { exchange.publish("hello") }
-    Then { queue1.messages.should == ["hello"] }
-    Then { queue1.snapshot_messages.should == ["hello"] }
-    Then { queue2.messages.should == ["hello"] }
-    Then { queue2.snapshot_messages.should == ["hello"] }
+
+    Then { expect(queue1.messages.size).to eq(1)}
+    Then { expect(queue1.messages[0][:delivery_info].delivery_tag).to eq("1")}
+    Then { expect(queue1.messages[0][:properties].to_hash.empty?).to be_true}
+    Then { expect(queue1.messages[0][:payload]).to eq('hello')}
+    Then { expect(queue1.snapshot_messages[0][:delivery_info].delivery_tag).to eq("1")}
+    Then { expect(queue1.snapshot_messages[0][:properties].to_hash.empty?).to be_true}
+    Then { expect(queue1.snapshot_messages[0][:payload]).to eq('hello')}
+
+    Then { expect(queue2.messages.size).to eq(1)}
+    Then { expect(queue2.messages[0][:delivery_info].delivery_tag).to eq("1")}
+    Then { expect(queue2.messages[0][:properties].to_hash.empty?).to be_true}
+    Then { expect(queue2.messages[0][:payload]).to eq('hello')}
+    Then { expect(queue2.snapshot_messages[0][:delivery_info].delivery_tag).to eq("1")}
+    Then { expect(queue2.snapshot_messages[0][:properties].to_hash.empty?).to be_true}
+    Then { expect(queue2.snapshot_messages[0][:payload]).to eq('hello')}
   end
 
   describe "#method_missing" do

@@ -37,13 +37,22 @@ describe BunnyMock::Queue do
   end
 
   describe "#subscribe" do
-    Given { queue.messages = ["Ehh", "What's up Doc?"] }
-    Given(:handler) { mock("handler") }
+    Given { queue.messages = [
+        {delivery_info: BunnyMock::DeliveryInfo.new, properties: Bunny::MessageProperties.new({}), payload: 'Ehh'},
+        {delivery_info: BunnyMock::DeliveryInfo.new, properties: Bunny::MessageProperties.new({}), payload: "What's up Doc?"}
+      ] }
+    Given(:handler) { double("handler") }
     Given {
-      handler.should_receive(:handle).with("Ehh").ordered
-      handler.should_receive(:handle).with("What's up Doc?").ordered
+      handler.should_receive(:handle).with(any_args) do |delivery_info, properties, payload|
+        delivery_info.delivery_tag == '1' && properties == {} && payload == 'Ehh'
+      end.ordered
+
+      handler.should_receive(:handle).with(any_args) do |delivery_info, properties, payload|
+        delivery_info.delivery_tag == '1' && properties == {} && payload == "What's up Doc?"
+      end.ordered
+
     }
-    When { queue.subscribe { |msg| handler.handle(msg[:payload]) } }
+    When { queue.subscribe { |msg| handler.handle(msg) } }
     Then { queue.messages.should be_empty }
     Then { queue.snapshot_messages.should be_empty }
     Then { queue.delivery_count.should == 2 }

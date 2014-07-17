@@ -2,66 +2,6 @@
 require 'spec_helper'
 require 'bunny_mock'
 
-describe "BunnyMock Integration Tests", :integration => true do
-  it "should handle the basics of message passing" do
-    # Basic one-to-one queue/exchange setup.
-    bunny = BunnyMock.new
-    queue = bunny.queue(
-      "integration_queue",
-      :durable     => true,
-      :auto_delete => true,
-      :exclusive   => false,
-      :arguments   => {"x-ha-policy" => "all"}
-    )
-    exchange = bunny.exchange(
-      "integration_exchange",
-      :type        => :direct,
-      :durable     => true,
-      :auto_delete => true
-    )
-    queue.bind(exchange)
-
-    # Basic assertions
-    queue.messages.should be_empty
-    exchange.queues.should have(1).queue
-    exchange.should be_bound_to "integration_queue"
-    queue.default_consumer.message_count.should == 0
-
-    # Send some messages
-    exchange.publish("Message 1")
-    exchange.publish("Message 2")
-    exchange.publish("Message 3")
-
-    # Verify state of the queue
-    queue.messages.should have(3).messages
-    queue.messages.should == [
-      "Message 1",
-      "Message 2",
-      "Message 3"
-    ]
-    queue.snapshot_messages.should have(3).messages
-    queue.snapshot_messages.should == [
-      "Message 1",
-      "Message 2",
-      "Message 3"
-    ]
-
-    # Here's what we expect to happen when we subscribe to this queue.
-    handler = mock("target")
-    handler.should_receive(:handle_message).with("Message 1").ordered
-    handler.should_receive(:handle_message).with("Message 2").ordered
-    handler.should_receive(:handle_message).with("Message 3").ordered
-
-    # Read all those messages
-    msg_count = 0
-    queue.subscribe do |msg|
-      handler.handle_message(msg[:payload])
-      msg_count += 1
-      queue.default_consumer.message_count.should == msg_count
-    end
-  end
-end
-
 describe BunnyMock do
   Given(:bunny) { BunnyMock.new }
 
@@ -75,6 +15,24 @@ describe BunnyMock do
 
   describe "#stop" do
     Then { bunny.stop.should be_nil }
+  end
+
+  describe "#channels" do
+    context "at the start" do
+      Then { bunny.channels.should be_an Array }
+      Then { bunny.channels.should be_empty }
+    end
+    context "adding channels" do
+      When(:channel) { bunny.create_channel }
+      Then { bunny.channels.count.should == 1 }
+    end
+    describe "channel queues" do
+      Given(:c) { bunny.create_channel }
+      When(:queues) {
+        c.queue("foo", {:bar => :baz})
+      }
+      Then { c.queues.first.should be_a BunnyMock::Queue }
+    end
   end
 
   describe "#queue" do

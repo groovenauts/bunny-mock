@@ -47,11 +47,24 @@ describe BunnyMock::Exchange do
     Given(:queue2) { BunnyMock::Queue.new("queue2") }
     Given { queue1.bind(exchange) }
     Given { queue2.bind(exchange) }
+    When { BunnyMock::DeliveryInfo.clear_delivery_tag }
     When { exchange.publish("hello") }
-    Then { queue1.messages.should == ["hello"] }
-    Then { queue1.snapshot_messages.should == ["hello"] }
-    Then { queue2.messages.should == ["hello"] }
-    Then { queue2.snapshot_messages.should == ["hello"] }
+
+    Then { expect(queue1.messages.size).to eq(1)}
+    Then { expect(queue1.messages[0][:delivery_info].delivery_tag).to eq("1")}
+    Then { expect(queue1.messages[0][:properties].to_hash.empty?).to be_true}
+    Then { expect(queue1.messages[0][:payload]).to eq('hello')}
+    Then { expect(queue1.snapshot_messages[0][:delivery_info].delivery_tag).to eq("1")}
+    Then { expect(queue1.snapshot_messages[0][:properties].to_hash.empty?).to be_true}
+    Then { expect(queue1.snapshot_messages[0][:payload]).to eq('hello')}
+
+    Then { expect(queue2.messages.size).to eq(1)}
+    Then { expect(queue2.messages[0][:delivery_info].delivery_tag).to eq("1")}
+    Then { expect(queue2.messages[0][:properties].to_hash.empty?).to be_true}
+    Then { expect(queue2.messages[0][:payload]).to eq('hello')}
+    Then { expect(queue2.snapshot_messages[0][:delivery_info].delivery_tag).to eq("1")}
+    Then { expect(queue2.snapshot_messages[0][:properties].to_hash.empty?).to be_true}
+    Then { expect(queue2.snapshot_messages[0][:payload]).to eq('hello')}
   end
 
   describe "#method_missing" do
